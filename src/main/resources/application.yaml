@@ -1,0 +1,133 @@
+server:
+  port: 8098
+servlet:
+  context-path: /data-converter
+
+spring:
+  application.name: data-converter
+  datasource:
+    url: jdbc:postgresql://${POSTGRESQL_HOST:localhost}:${POSTGRESQL_PORT:5432}/${POSTGRESQL_DB:df_data_converter}?currentSchema=${POSTGRESQL_SCHEMA:public}&ApplicationName=${POSTGRESQL_CONNECTION_NAME:data-converter}
+    username: ${POSTGRESQL_USER:postgres}
+    password: ${POSTGRESQL_PASSWORD:postgres}
+  flyway:
+    locations: classpath:db/migration
+  jackson:
+    serialization:
+      write_dates_as_timestamps: false
+  batch:
+    jdbc:
+      initialize-schema: always
+    job:
+      enabled: false # If no set spring creates prototype Job beans on startup (bug)
+
+  kafka:
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.UUIDSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.UUIDDeserializer
+
+  cloud:
+    function:
+      definition: conversionTaskStatus
+    stream:
+      kafka:
+        binder:
+          configuration:
+            auto-offset-reset: latest
+        streams:
+          binder:
+            brokers: localhost:9092
+      bindings:
+        conversionTaskStatus-out-0.destination: conversionTaskStatusDataflowTopic
+        conversionTaskStatus-in-0.destination: conversionTaskStatusDataflowTopic
+      source: conversionTaskStatus
+  cloud.stream.kafka.default.producer.sync: true
+  cloud.stream.kafka.default.producer.sendTimeoutExpression: "5000"
+  cloud.stream.kafka.bindings.outError.producer.sync: false
+  cloud.stream.kafka.bindings.outError.producer.sendTimeoutExpression: "5000"
+  cloud.stream.kafka.bindings.outLog.producer.sync: false
+  cloud.stream.kafka.bindings.outLog.producer.sendTimeoutExpression: "5000"
+  cloud.stream.default.group: data-converter
+  cloud.stream.kafka.default.consumer.autoCommitOffset: false
+  cloud.stream.kafka.default.consumer.enableDlq: true
+  cloud.stream.kafka.default.consumer.dlqName: deadMessagesDataflowTopic
+
+logging:
+  level:
+    dataflow: DEBUG
+    org.springframework: WARN
+    org.springframework.jdbc.core.JdbcTemplate: WARN
+    org.hibernate.SQL: WARN
+    org.apache.kafka: WARN
+    o.a.kafka: WARN
+    o.a.k: WARN
+    org.jooq.tools.LoggerListener: WARN
+
+graylog:
+  host: localhost
+  port: 12201
+
+grpc:
+  server:
+    port: 8198
+  client:
+    AuthorizationService:
+      address: 'static://127.0.0.1:8082'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    ConfigService:
+      address: 'static://127.0.0.1:8192'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    NodeExecutionControlService:
+      address: 'static://127.0.0.1:8194'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    NodeExecutionService:
+      address: 'static://127.0.0.1:8194'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    WorkflowExecutionControlService:
+      address: 'static://127.0.0.1:8194'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    WorkflowExecutionService:
+      address: 'static://127.0.0.1:8194'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    WorkflowExecutionSupervisorService:
+      address: 'static://127.0.0.1:8194'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    DataFrameLockService:
+      address: 'static://127.0.0.1:8197'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    DataFrameService:
+      address: 'static://127.0.0.1:8197'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    DataSourceLockService:
+      address: 'static://127.0.0.1:8197'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+    DataSourceService:
+      address: 'static://127.0.0.1:8197'
+      enableKeepAlive: true
+      keepAliveWithoutCalls: true
+      negotiationType: plaintext
+
+app-config:
+  dbAccessorProperties:
+    specialSchema: "SPECIAL"
+    tempObjectIdSequence: "TEMP_OBJECT_ID"

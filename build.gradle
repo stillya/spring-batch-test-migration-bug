@@ -1,0 +1,84 @@
+plugins {
+    id "java"
+    id 'org.springframework.boot' version '2.6.1'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id "org.jetbrains.kotlin.jvm" version "1.6.0"
+    id "org.jetbrains.kotlin.plugin.spring" version "1.6.0"
+    id "com.google.protobuf" version "0.8.13"
+    id "org.jetbrains.kotlin.kapt" version "1.6.10"
+}
+/**
+ * Dependencies
+ */
+
+configurations.all {
+    exclude module: "slf4j-log4j12"
+    exclude module: "slf4j-reload4j"
+
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // spring
+    implementation("org.springframework.boot:spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
+    implementation("org.springframework.boot:spring-boot-starter-data-jdbc")
+    implementation("org.springframework.boot:spring-boot-starter-batch")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // apache commons
+    implementation("commons-io:commons-io:2.11.0")
+    implementation("org.apache.parquet:parquet-avro:1.12.3")
+    implementation("org.apache.hadoop:hadoop-common:3.3.3")
+    implementation("org.apache.hadoop:hadoop-mapreduce-client-core:3.3.3")
+
+    // postgres
+    runtimeOnly("org.postgresql:postgresql:42.4.0")
+
+    // mapstruct
+    implementation("org.mapstruct:mapstruct:1.5.2.Final")
+    kapt("org.mapstruct:mapstruct-processor:1.5.2.Final")
+
+    // mapper
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.13.3")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.13.3")
+
+    // kotlin
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+
+    // kotlin logging
+    implementation("io.github.microutils:kotlin-logging-jvm:2.1.23")
+    // tests
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.8.2")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:5.8.2")
+    testImplementation("org.testcontainers:testcontainers:1.16.3")
+    testImplementation("org.testcontainers:postgresql:1.16.3")
+    testImplementation("org.testcontainers:junit-jupiter:1.16.3")
+    implementation("org.springframework.batch:spring-batch-test:4.3.6")
+    testImplementation("org.awaitility:awaitility")
+
+}
+
+/**
+ * Basic
+ */
+
+bootJar {
+    enabled = true
+}
+
+jar {
+    enabled = false
+}
+
+test {
+    useJUnitPlatform()
+}

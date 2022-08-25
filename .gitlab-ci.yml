@@ -1,0 +1,67 @@
+image: docker-registry.example.global:4443/infra/gradle:7-jdk11
+
+variables:
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+  DOCKER_REG_URL: "http://docker-registry.cluster.local:31970"
+  DOCKER_REG: "docker-registry.cluster.local:31970"
+  K8S_NAMESPACE_STAGE: "develop"
+  APP_VERSION_STAGE: "develop"
+  K8S_FOLDER: "/opt/k8s"
+
+before_script:
+  - rm -rf ../ms-core-root
+  - git clone http://gitlab+deploy-token-1:$CORE_API_TOKEN@cm-dev.fisgroup.ru:8888/campaign-new-arch/ms-core-root.git ../ms-core-root
+  - mv /builds/campaign-new-arch/$CI_PROJECT_NAME ../ms-core-root/
+  - cd /builds/campaign-new-arch/ms-core-root/$CI_PROJECT_NAME
+  - rm -rf ../common-proto
+  - git clone http://gitlab+deploy-token-1:$COMMON_PROTO_TOKEN@cm-dev.fisgroup.ru:8888/campaign-new-arch/common-proto.git ../common-proto
+
+cache:
+  key:
+    files:
+      - ./gradle/wrapper/gradle-wrapper.properties
+  paths:
+     - cache/caches/
+     - cache/notifications/
+     - cache/wrapper/
+
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  script:
+    - gradle bootJar -P gradle.properties --build-cache --gradle-user-home cache/ -i
+    - mv ../$CI_PROJECT_NAME /builds/campaign-new-arch/ && cd /builds/campaign-new-arch/$CI_PROJECT_NAME
+  artifacts:
+    paths:
+      - build/libs/
+    expire_in: 1 day
+
+deploy_k8s:
+  image: alpine
+  stage: deploy
+  before_script:
+    - apk update
+    - 'which ssh-agent || ( apk update && apk add openssh-client )'
+    - eval $(ssh-agent -s)
+    - mkdir -p ~/.ssh && touch ~/.ssh/known_hosts && touch ~/.ssh/config
+    - ssh-keyscan -p $SSH_PORT -t rsa $SSH_HOST_IP_K8S >> ~/.ssh/known_hosts
+    - echo "$SSH_KEY" > id_rsa
+    - printf "Host $SSH_HOST_IP_K8S\n  User \"$SSH_USER\"\n" > ~/.ssh/config
+    - chmod 700 id_rsa
+  script:
+    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_K8S "(mkdir -p $K8S_FOLDER/$CI_PROJECT_NAME) || true"
+    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_K8S "(rm -rf $K8S_FOLDER/$CI_PROJECT_NAME/*)"
+    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_K8S "(mkdir -p $K8S_FOLDER/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$APP_VERSION_STAGE)"
+    - scp -P $SSH_PORT -v -r -i id_rsa "build/libs" $SSH_HOST_IP_K8S:$K8S_FOLDER/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$APP_VERSION_STAGE/
+    - scp -P $SSH_PORT -v -r -i id_rsa "okd" $SSH_HOST_IP_K8S:$K8S_FOLDER/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$APP_VERSION_STAGE/
+    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_K8S "cd $K8S_FOLDER/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$APP_VERSION_STAGE/ && mv ./libs/* ./okd/$CI_PROJECT_NAME.jar"
+#    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_OKD "/opt/app/okd-deploy/login.sh $OKD_USER $OKD_PASSWORD"
+    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_K8S "docker build -t $CI_PROJECT_NAME:$APP_VERSION_STAGE $K8S_FOLDER/$CI_PROJECT_NAME/$CI_PROJECT_NAME-$APP_VERSION_STAGE/okd/."
+    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_K8S "docker tag $CI_PROJECT_NAME:$APP_VERSION_STAGE $DOCKER_REG/$K8S_NAMESPACE_STAGE/$CI_PROJECT_NAME:$APP_VERSION_STAGE"
+    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_K8S "docker push $DOCKER_REG/$K8S_NAMESPACE_STAGE/$CI_PROJECT_NAME:$APP_VERSION_STAGE"
+    - ssh -p $SSH_PORT -i id_rsa $SSH_HOST_IP_K8S "kubectl rollout restart -n $APP_VERSION_STAGE deployment $CI_PROJECT_NAME"
+  only: 
+    - master
